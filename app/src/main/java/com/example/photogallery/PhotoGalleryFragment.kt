@@ -10,7 +10,6 @@ import android.view.*
 import android.widget.ImageView
 import android.widget.SearchView
 import androidx.core.content.ContextCompat
-import androidx.fragment.app.Fragment
 import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.GridLayoutManager
@@ -33,21 +32,23 @@ class PhotoGalleryFragment : VisibleFragment() {
         retainInstance = true
         setHasOptionsMenu(true)
 
-        photoGalleryViewModel = ViewModelProvider(this)[PhotoGalleryViewModel::class.java]
+        photoGalleryViewModel =
+            ViewModelProvider(this)[PhotoGalleryViewModel::class.java]
+
         val responseHandler = Handler()
         thumbnailDownloader =
             ThumbnailDownloader(responseHandler) { photoHolder, bitmap ->
                 val drawable = BitmapDrawable(resources, bitmap)
                 photoHolder.bindDrawable(drawable)
             }
-        lifecycle.addObserver(thumbnailDownloader.fragmentLifeCycleObserver)
+        lifecycle.addObserver(thumbnailDownloader.fragmentLifecycleObserver)
     }
 
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?
-    ): View? {
+    ): View {
         viewLifecycleOwner.lifecycle.addObserver(
             thumbnailDownloader.viewLifecycleObserver
         )
@@ -64,13 +65,14 @@ class PhotoGalleryFragment : VisibleFragment() {
         photoGalleryViewModel.galleryItemLiveData.observe(
             viewLifecycleOwner,
             Observer { galleryItems ->
+                Log.d(TAG, "Have gallery items from view model $galleryItems")
                 photoRecyclerView.adapter = PhotoAdapter(galleryItems)
-            }
-        )
+            })
     }
 
     override fun onDestroyView() {
         super.onDestroyView()
+        thumbnailDownloader.clearQueue()
         viewLifecycleOwner.lifecycle.removeObserver(
             thumbnailDownloader.viewLifecycleObserver
         )
@@ -79,17 +81,16 @@ class PhotoGalleryFragment : VisibleFragment() {
     override fun onDestroy() {
         super.onDestroy()
         lifecycle.removeObserver(
-            thumbnailDownloader.fragmentLifeCycleObserver
+            thumbnailDownloader.fragmentLifecycleObserver
         )
     }
 
-    override fun onCreateOptionsMenu(menu: Menu, inflater: MenuInflater) {
-        super.onCreateOptionsMenu(menu, inflater)
-        inflater.inflate(R.menu.fragment_photo_gallery, menu)
+    override fun onCreateOptionsMenu(menu: Menu, menuInflater: MenuInflater) {
+        super.onCreateOptionsMenu(menu, menuInflater)
+        menuInflater.inflate(R.menu.fragment_photo_gallery, menu)
 
         val searchItem: MenuItem = menu.findItem(R.id.menu_item_search)
         val searchView = searchItem.actionView as SearchView
-
         searchView.apply {
             setOnQueryTextListener(object : SearchView.OnQueryTextListener {
                 override fun onQueryTextSubmit(queryText: String): Boolean {
@@ -105,7 +106,8 @@ class PhotoGalleryFragment : VisibleFragment() {
             })
 
             setOnSearchClickListener {
-                searchView.setQuery(photoGalleryViewModel.searchTerm, false)
+                val query = QueryPreferences.getStoredQuery(requireContext())
+                searchView.setQuery(query, false)
             }
         }
 
@@ -122,7 +124,7 @@ class PhotoGalleryFragment : VisibleFragment() {
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
             R.id.menu_item_clear -> {
-                photoGalleryViewModel.fetchPhotos("")
+                photoGalleryViewModel.fetchPhotos()
                 true
             }
             R.id.menu_item_toggle_polling -> {
@@ -134,7 +136,6 @@ class PhotoGalleryFragment : VisibleFragment() {
                     val constraints = Constraints.Builder()
                         .setRequiredNetworkType(NetworkType.UNMETERED)
                         .build()
-
                     val periodicRequest = PeriodicWorkRequest
                         .Builder(PollWorker::class.java, 15, TimeUnit.MINUTES)
                         .setConstraints(constraints)
@@ -153,13 +154,32 @@ class PhotoGalleryFragment : VisibleFragment() {
         }
     }
 
-    private class PhotoHolder(private val itemImageView: ImageView) :
-        RecyclerView.ViewHolder(itemImageView) {
+    private inner class PhotoHolder(private val itemImageView: ImageView) :
+        RecyclerView.ViewHolder(itemImageView),
+        View.OnClickListener {
+
+        private lateinit var galleryItem: GalleryItem
+
+        init {
+            itemView.setOnClickListener(this)
+        }
+
         val bindDrawable: (Drawable) -> Unit = itemImageView::setImageDrawable
+
+        fun bindGalleryItem(item: GalleryItem) {
+            galleryItem = item
+        }
+
+        override fun onClick(view: View) {
+            val intent = PhotoPageActivity
+                .newIntent(requireContext(), galleryItem.photoPageUri)
+            startActivity(intent)
+        }
     }
 
     private inner class PhotoAdapter(private val galleryItems: List<GalleryItem>) :
         RecyclerView.Adapter<PhotoHolder>() {
+
         override fun onCreateViewHolder(
             parent: ViewGroup,
             viewType: Int
@@ -176,6 +196,7 @@ class PhotoGalleryFragment : VisibleFragment() {
 
         override fun onBindViewHolder(holder: PhotoHolder, position: Int) {
             val galleryItem = galleryItems[position]
+            holder.bindGalleryItem(galleryItem)
             val placeholder: Drawable = ContextCompat.getDrawable(
                 requireContext(),
                 R.drawable.bill_up_close

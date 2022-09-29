@@ -19,7 +19,7 @@ class ThumbnailDownloader<in T>(
     private val onThumbnailDownloaded: (T, Bitmap) -> Unit
 ) : HandlerThread(TAG) {
 
-    val fragmentLifeCycleObserver: LifecycleObserver =
+    val fragmentLifecycleObserver: LifecycleObserver =
         object : LifecycleObserver {
             @OnLifecycleEvent(Lifecycle.Event.ON_CREATE)
             fun setup() {
@@ -74,6 +74,11 @@ class ThumbnailDownloader<in T>(
         requestMap[target] = url
         requestHandler.obtainMessage(MESSAGE_DOWNLOAD, target)
             .sendToTarget()
+    }
+
+    fun clearQueue() {
+        requestHandler.removeMessages(MESSAGE_DOWNLOAD)
+        requestMap.clear()
     }
 
     private fun handleRequest(target: T) {
