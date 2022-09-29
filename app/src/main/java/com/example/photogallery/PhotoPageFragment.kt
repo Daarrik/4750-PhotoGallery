@@ -33,8 +33,10 @@ class PhotoPageFragment : VisibleFragment() {
                 override fun handleOnBackPressed() {
                     if (webView.canGoBack())
                         webView.goBack()
-                    else
+                    else {
                         isEnabled = false
+                        requireActivity().onBackPressed()
+                    }
                 }
             })
     }
