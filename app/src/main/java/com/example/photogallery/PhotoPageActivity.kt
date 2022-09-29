@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 
 class PhotoPageActivity : AppCompatActivity() {
@@ -21,6 +22,18 @@ class PhotoPageActivity : AppCompatActivity() {
                 .add(R.id.fragment_container, fragment)
                 .commit()
         }
+
+        onBackPressedDispatcher.addCallback(
+            this,
+            object : OnBackPressedCallback(true) {
+                override fun handleOnBackPressed() {
+                    if (isEnabled) {
+                        isEnabled = false
+                        onBackPressed()
+                    }
+                }
+            }
+        )
     }
 
     companion object {

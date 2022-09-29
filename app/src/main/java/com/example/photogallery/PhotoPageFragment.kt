@@ -3,6 +3,7 @@ package com.example.photogallery
 import android.annotation.SuppressLint
 import android.net.Uri
 import android.os.Bundle
+import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -10,6 +11,7 @@ import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.ProgressBar
+import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 
 private const val ARG_URI = "photo_page_url"
@@ -24,6 +26,17 @@ class PhotoPageFragment : VisibleFragment() {
         super.onCreate(savedInstanceState)
 
         uri = arguments?.getParcelable(ARG_URI) ?: Uri.EMPTY
+
+        val callback = requireActivity().onBackPressedDispatcher.addCallback(
+            this,
+            object : OnBackPressedCallback(true) {
+                override fun handleOnBackPressed() {
+                    if (webView.canGoBack())
+                        webView.goBack()
+                    else
+                        isEnabled = false
+                }
+            })
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -53,6 +66,7 @@ class PhotoPageFragment : VisibleFragment() {
                 (activity as AppCompatActivity).supportActionBar?.subtitle = title
             }
         }
+
         webView.webViewClient = WebViewClient()
         webView.loadUrl(uri.toString())
 
